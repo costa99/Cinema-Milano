@@ -23,8 +23,8 @@ A **Flutter** mobile application that displays movie listings and showtimes scra
 ### Installation
 ```bash
 # Clone the repository (if not already done)
-git clone https://github.com/costa99/cinema‑scraper‑frontend.git
-cd cinema‑scraper‑frontend
+git clone https://github.com/costa99/Cinema‑Milano.git
+cd Cinema‑Milano
 
 # Get Flutter dependencies
 flutter pub get
