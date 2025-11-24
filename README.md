@@ -38,8 +38,13 @@ flutter devices
 # Run in debug mode
 flutter run
 ```
-The app will attempt to connect to the backend at `http://10.0.2.2:8000` (Android emulator) or `http://localhost:8000` (iOS simulator). Adjust the `BASE_URL` in `lib/config.dart` if needed.
 
+### 📦 Download APK
+You can download the latest Android APK from the releases page:
+
+[Download APK](https://github.com/costa99/Cinema-Milano/releases/latest/download/cinema_milano.apk)
+
+```
 ---
 
 ## 📦 Project Structure
