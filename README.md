@@ -48,7 +48,7 @@ You can download the latest Android APK from the releases page:
 ---
 
 ## 📦 Project Structure
-```
+
 lib/
 ├─ components/          # Re‑usable UI widgets (movie cards, chips, etc.)
 ├─ screens/             # Page‑level widgets (MovieListScreen, SettingsScreen…)
@@ -57,7 +57,6 @@ lib/
 ├─ themes/              # Theme definitions and ThemeController
 ├─ config.dart          # Global configuration (backend URL, etc.)
 └─ main.dart            # App entry point
-```
 
 ---
 
