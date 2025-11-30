@@ -141,9 +141,7 @@ class _CinemaAvailabilityScreenState extends State<CinemaAvailabilityScreen> {
           final details = await _apiService.getMovieDetails(url, cinemaName);
 
           // Update movie details (only once, preferably from the main version)
-          // Update movie details (only once, preferably from the main version)
-          // User requested to use TMDB for posters, so we ignore backend posters here.
-          // We still update other details if needed.
+          // Backend provides posters and other movie details.
           if (details['director'] != null) {
              _movieAvailability.movie.director = details['director'];
           }

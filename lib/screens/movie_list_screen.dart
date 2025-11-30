@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/movie.dart';
 import '../services/api_service.dart';
-import '../services/tmdb_service.dart';
 import '../services/favorites_service.dart';
 import '../services/theme_service.dart';
 import 'cinema_availability_screen.dart';
 import 'favorites_screen.dart';
 import 'settings_screen.dart';
+
+import 'package:intl/intl.dart';
 
 class MovieListScreen extends StatefulWidget {
   final ThemeController themeController;
@@ -17,31 +18,64 @@ class MovieListScreen extends StatefulWidget {
   State<MovieListScreen> createState() => _MovieListScreenState();
 }
 
-class _MovieListScreenState extends State<MovieListScreen> {
-  late Future<List<MovieAvailability>> _moviesFuture;
+class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProviderStateMixin {
+  late Future<List<List<MovieAvailability>>> _moviesFuture;
   final ApiService _apiService = ApiService();
-  final TMDBService _tmdbService = TMDBService();
   final FavoritesService _favoritesService = FavoritesService();
   Set<String> _selectedCinemas = {};
   Set<String> _favoriteMovieTitles = {};
-  bool _showOnlyToday = false;
+  DateTime _selectedDate = DateTime.now();
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  final Map<String, bool> _posterLoadingStatus = {}; // Track which posters are being loaded
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     print('=== MovieListScreen initState called ===');
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {}); // Rebuild when tab changes to show/hide date picker
+    });
     _refreshMovies();
     _loadFavorites();
   }
 
+  DateTime _getEndOfWeek() {
+    final now = DateTime.now();
+    // Calculate days until Sunday (7 = Sunday in DateTime.weekday)
+    final daysUntilSunday = DateTime.sunday - now.weekday;
+    // If today is Sunday, daysUntilSunday will be 0
+    final endOfWeek = now.add(Duration(days: daysUntilSunday));
+    // Return end of day on Sunday
+    return DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59);
+  }
+
   void _refreshMovies() {
     setState(() {
-      _moviesFuture = _apiService.getMovies(date: _showOnlyToday ? 'today' : null);
+    setState(() {
+      _moviesFuture = Future.wait([
+        _apiService.getCurrentMovies(),
+        _apiService.getComingSoonMovies(),
+      ]);
     });
-    _loadPostersWhenReady();
+    });
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final endOfWeek = _getEndOfWeek();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: endOfWeek,
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+      _refreshMovies();
+    }
   }
 
   Future<void> _loadFavorites() async {
@@ -53,86 +87,7 @@ class _MovieListScreenState extends State<MovieListScreen> {
     }
   }
 
-  void _loadPostersWhenReady() async {
-    try {
-      final movies = await _moviesFuture;
-      print('Movies loaded, starting poster loading for ${movies.length} movies');
-      _loadPostersAsync(movies);
-    } catch (e) {
-      print('Error loading movies: $e');
-    }
-  }
 
-  Future<void> _loadPostersAsync(List<MovieAvailability> movies) async {
-    print('Starting to load ${movies.length} posters asynchronously...');
-    
-    for (var movieAvail in movies) {
-      if (movieAvail.movie.posterUrl == null) {
-        final movieTitle = movieAvail.movie.title;
-        if (_posterLoadingStatus[movieTitle] == true) continue; // Already loading
-        
-        _posterLoadingStatus[movieTitle] = true;
-        
-        // Fetch poster from TMDB
-        try {
-          print('Searching TMDB for: $movieTitle');
-          // Clean title for better search results (remove (O.V.), etc.)
-          final cleanTitle = movieTitle.replaceAll(RegExp(r'\(.*?\)'), '').trim();
-          
-          final tmdbResult = await _tmdbService.searchMovie(cleanTitle);
-          
-          if (tmdbResult != null) {
-            final posterPath = tmdbResult['poster_path'];
-            final posterUrl = _tmdbService.getPosterUrl(posterPath);
-            
-            if (posterUrl != null) {
-              print('Got TMDB poster for $movieTitle: $posterUrl');
-              if (mounted) {
-                setState(() {
-                  movieAvail.movie.posterUrl = posterUrl;
-                  // We could also update plot if available
-                  if (movieAvail.movie.plot == null && tmdbResult['overview'] != null) {
-                     movieAvail.movie.plot = tmdbResult['overview'];
-                  }
-                });
-              }
-            }
-          } else {
-            print('No TMDB result for $movieTitle, falling back to backend');
-            _fetchBackendPoster(movieAvail);
-          }
-        } catch (e) {
-          print('Error loading poster for $movieTitle from TMDB: $e');
-          _fetchBackendPoster(movieAvail);
-        }
-      }
-    }
-    print('Finished loading posters');
-  }
-
-  Future<void> _fetchBackendPoster(MovieAvailability movieAvail) async {
-    if (movieAvail.movie.detailsUrl == null) return;
-    
-    try {
-      print('Fetching fallback poster from backend for: ${movieAvail.movie.title}');
-      final cinemaName = movieAvail.cinemas.first.cinemaName;
-      final details = await _apiService.getMovieDetails(
-        movieAvail.movie.detailsUrl!,
-        cinemaName,
-      );
-      
-      if (details['poster_url'] != null) {
-        print('Got backend poster for ${movieAvail.movie.title}: ${details['poster_url']}');
-        if (mounted) {
-          setState(() {
-            movieAvail.movie.posterUrl = details['poster_url'];
-          });
-        }
-      }
-    } catch (e) {
-      print('Error loading backend poster for ${movieAvail.movie.title}: $e');
-    }
-  }
 
   List<String> _getUniqueCinemas(List<MovieAvailability> movies) {
     final cinemas = <String>{'All'};
@@ -144,10 +99,26 @@ class _MovieListScreenState extends State<MovieListScreen> {
     return cinemas.toList()..sort();
   }
 
-  List<MovieAvailability> _filterMovies(List<MovieAvailability> movies) {
+  List<MovieAvailability> _filterMovies(List<MovieAvailability> movies, {bool filterByDate = false}) {
     try {
       var filtered = movies;
       
+      // Filter by date if requested (for Now Showing)
+      if (filterByDate) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+        filtered = filtered.where((movie) {
+          // Check if any cinema has showtimes on the selected date
+          return movie.cinemas.any((cinema) => cinema.date == dateStr);
+        }).map((movie) {
+          // Create a new MovieAvailability with only the relevant cinemas
+          final relevantCinemas = movie.cinemas.where((cinema) => cinema.date == dateStr).toList();
+          return MovieAvailability(
+            movie: movie.movie,
+            cinemas: relevantCinemas,
+          );
+        }).toList();
+      }
+
       // Filter by cinema
       if (_selectedCinemas.isNotEmpty) {
         filtered = filtered.where((movie) {
@@ -172,14 +143,10 @@ class _MovieListScreenState extends State<MovieListScreen> {
         }
       }
   
-      // Filter by "Today" - Handled by Backend now!
-      // if (_showOnlyToday) { ... }
-      
       return filtered;
     } catch (e) {
       print('Error filtering movies: $e');
-      return []; // Return empty list on error to avoid crash, or return 'movies' to show all? 
-                 // Empty list is safer as it indicates something went wrong but keeps UI stable.
+      return []; // Return empty list on error to avoid crash
     }
   }
 
@@ -239,71 +206,26 @@ class _MovieListScreenState extends State<MovieListScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  // Helper method to determine if a movie is "coming soon" (7+ days away)
-  bool _isComingSoon(MovieAvailability movieAvail) {
-    final now = DateTime.now();
-    final cutoffDate = now.add(const Duration(days: 7));
-    
-    for (var cinema in movieAvail.cinemas) {
-      try {
-        // Parse the date string (format: YYYY-MM-DD or "Today")
-        DateTime? showDate;
-        if (cinema.date.toLowerCase() == 'today') {
-          showDate = now;
-        } else {
-          showDate = DateTime.tryParse(cinema.date);
-        }
-        
-        // If any showtime is within the next 7 days, it's "now showing"
-        if (showDate != null && showDate.isBefore(cutoffDate)) {
-          return false;
-        }
-      } catch (e) {
-        print('Error parsing date ${cinema.date}: $e');
-      }
-    }
-    
-    // If all showtimes are 7+ days away (or we couldn't parse any), it's "coming soon"
-    return true;
-  }
 
-  // Split movies into "Now Showing" and "Coming Soon"
-  Map<String, List<MovieAvailability>> _splitMoviesByDate(List<MovieAvailability> movies) {
-    final nowShowing = <MovieAvailability>[];
-    final comingSoon = <MovieAvailability>[];
-    
-    for (var movie in movies) {
-      if (_isComingSoon(movie)) {
-        comingSoon.add(movie);
-      } else {
-        nowShowing.add(movie);
-      }
-    }
-    
-    return {
-      'nowShowing': nowShowing,
-      'comingSoon': comingSoon,
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           title: const Text('Movies'),
           actions: [
-            FutureBuilder<List<MovieAvailability>>(
+            FutureBuilder<List<List<MovieAvailability>>>(
               future: _moviesFuture,
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const SizedBox();
                 
-                final cinemas = _getUniqueCinemas(snapshot.data!);
+                final allMovies = snapshot.data!.expand((l) => l).toList();
+                final cinemas = _getUniqueCinemas(allMovies);
                 
                 return IconButton(
                   icon: const Icon(Icons.filter_list),
@@ -339,7 +261,7 @@ class _MovieListScreenState extends State<MovieListScreen> {
             ),
           ],
         ),
-        body: FutureBuilder<List<MovieAvailability>>(
+        body: FutureBuilder<List<List<MovieAvailability>>>(
           future: _moviesFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -350,10 +272,13 @@ class _MovieListScreenState extends State<MovieListScreen> {
               return const Center(child: Text('No movies found.'));
             }
 
-            final allMovies = snapshot.data!;
-            final movies = _filterMovies(allMovies);
+            final nowShowingAll = snapshot.data![0];
+            final comingSoonAll = snapshot.data![1];
 
-            if (movies.isEmpty) {
+            final nowShowing = _filterMovies(nowShowingAll, filterByDate: true);
+            final comingSoon = _filterMovies(comingSoonAll);
+
+            if (nowShowing.isEmpty && comingSoon.isEmpty) {
                if (_searchQuery.isNotEmpty) {
                  return Center(
                    child: Column(
@@ -378,11 +303,6 @@ class _MovieListScreenState extends State<MovieListScreen> {
                return const Center(child: Text('No movies found for this filter.'));
             }
 
-            // Split movies by date
-            final splitMovies = _splitMoviesByDate(movies);
-            final nowShowing = splitMovies['nowShowing']!;
-            final comingSoon = splitMovies['comingSoon']!;
-
             return NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) {
                 return [
@@ -397,7 +317,7 @@ class _MovieListScreenState extends State<MovieListScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Search bar and Today toggle
+                            // Search bar and Date Picker
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                               child: Row(
@@ -434,28 +354,36 @@ class _MovieListScreenState extends State<MovieListScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Text('Today', style: TextStyle(fontSize: 10)),
-                                      Switch(
-                                        value: _showOnlyToday,
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _showOnlyToday = value;
-                                            _refreshMovies();
-                                          });
-                                        },
+                                  // Date Picker Button - Only show on "Now Showing" tab
+                                  if (_tabController.index == 0)
+                                    InkWell(
+                                      onTap: () => _selectDate(context),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.grey),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.calendar_today, size: 20),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              DateFormat('dd/MM').format(_selectedDate),
+                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
                                 ],
                               ),
                             ),
                             // Tab bar
-                            const TabBar(
-                              tabs: [
+                            TabBar(
+                              controller: _tabController,
+                              tabs: const [
                                 Tab(text: 'Now Showing', icon: Icon(Icons.play_circle_outline)),
                                 Tab(text: 'Coming Soon', icon: Icon(Icons.upcoming)),
                               ],
@@ -482,25 +410,30 @@ class _MovieListScreenState extends State<MovieListScreen> {
                 ];
               },
               body: TabBarView(
+                controller: _tabController,
                 children: [
-                  _buildMovieGrid(nowShowing),
-                  _buildMovieGrid(comingSoon),
+                  _buildMovieGrid(nowShowing, 'nowShowing'),
+                  _buildMovieGrid(comingSoon, 'comingSoon'),
                 ],
               ),
             );
           },
         ),
-      ),
-    );
+      );
   }
 
-  Widget _buildMovieGrid(List<MovieAvailability> movies) {
+
+
+  Widget _buildMovieGrid(List<MovieAvailability> movies, String key) {
     if (movies.isEmpty) {
       return const Center(child: Text('No movies in this category.'));
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(8.0),
+    return ScrollConfiguration(
+      behavior: NoScrollbarBehavior(),
+      child: GridView.builder(
+        key: PageStorageKey(key),
+        padding: const EdgeInsets.all(8.0),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.7,
@@ -632,6 +565,21 @@ class _MovieListScreenState extends State<MovieListScreen> {
           ),
         );
       },
+    ),
     );
+  }
+}
+
+class NoScrollbarBehavior extends MaterialScrollBehavior {
+  @override
+  Widget buildOverscrollIndicator(
+      BuildContext context, Widget child, ScrollableDetails details) {
+    return child;
+  }
+
+  @override
+  Widget buildScrollbar(
+      BuildContext context, Widget child, ScrollableDetails details) {
+    return child;
   }
 }

@@ -1,22 +1,25 @@
 import 'dart:convert';
-import 'dart:io';
+
 import 'package:http/http.dart' as http;
 import '../models/movie.dart';
 
 class ApiService {
-  // Production domain with HTTPS
+  // Production domain
   static const String _productionDomain = 'homescrapy.xyz';
-  
-  // For local development, uncomment one of these:
-  // static const String _localHost = '10.0.2.2:8000'; // Android Emulator
-  // static const String _localHost = '192.168.1.x:8000'; // Physical device on local network
-  
+  static const String _localDomain = 'http://localhost:8001';
+
+  // Get API URL from Dart defines or use local as default for testing
+  // Usage:
+  //   Production: flutter run --dart-define=API_URL=https://homescrapy.xyz
+  //   Android Emulator: flutter run --dart-define=API_URL=http://10.0.2.2:8001
+  //   Physical Device: flutter run --dart-define=API_URL=http://192.168.1.x:8001
   String get baseUrl {
-    // Production: HTTPS with domain
-    return 'https://$_productionDomain';
-    
-    // For local development, uncomment this instead:
-    // return 'http://$_localHost';
+    const apiUrl = String.fromEnvironment('API_URL', defaultValue: _localDomain);
+    // If it's just the domain (no protocol), add https://
+    if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+      return 'https://$apiUrl';
+    }
+    return apiUrl;
   }
 
   Future<List<MovieAvailability>> getMovies({String? date}) async {
@@ -25,13 +28,54 @@ class ApiService {
       if (date != null) {
         uri = uri.replace(queryParameters: {'date': date});
       }
+      print('Requesting: $uri');
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => MovieAvailability.fromJson(json)).toList();
+        final movies = data.map((json) => MovieAvailability.fromJson(json)).toList();
+        print('Fetched ${movies.length} movies: ${movies.map((m) => m.movie.title).join(', ')}');
+        return movies;
       } else {
         throw Exception('Failed to load movies: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to connect to backend: $e');
+    }
+  }
+
+  Future<List<MovieAvailability>> getCurrentMovies() async {
+    try {
+      final uri = Uri.parse('$baseUrl/movies/current');
+      print('Requesting: $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final movies = data.map((json) => MovieAvailability.fromJson(json)).toList();
+        print('Fetched ${movies.length} current movies: ${movies.map((m) => m.movie.title).join(', ')}');
+        return movies;
+      } else {
+        throw Exception('Failed to load current movies: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to connect to backend: $e');
+    }
+  }
+
+  Future<List<MovieAvailability>> getComingSoonMovies() async {
+    try {
+      final uri = Uri.parse('$baseUrl/movies/comingsoon');
+      print('Requesting: $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final movies = data.map((json) => MovieAvailability.fromJson(json)).toList();
+        print('Fetched ${movies.length} coming soon movies: ${movies.map((m) => m.movie.title).join(', ')}');
+        return movies;
+      } else {
+        throw Exception('Failed to load coming soon movies: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Failed to connect to backend: $e');
@@ -45,6 +89,7 @@ class ApiService {
         'cinema_name': cinemaName,
       };
       final uri = Uri.parse('$baseUrl/movies/details').replace(queryParameters: queryParameters);
+      print('Requesting: $uri');
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {

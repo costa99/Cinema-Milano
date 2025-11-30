@@ -2,7 +2,23 @@ import 'package:flutter/material.dart';
 import 'screens/movie_list_screen.dart';
 import 'services/theme_service.dart';
 
+import 'package:workmanager/workmanager.dart';
+import 'services/background_service.dart';
+
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: true // Set to false in production
+  );
+  Workmanager().registerPeriodicTask(
+    "check_schedules_task",
+    taskName,
+    frequency: const Duration(hours: 2),
+    constraints: Constraints(
+      networkType: NetworkType.connected,
+    ),
+  );
   runApp(const MyApp());
 }
 

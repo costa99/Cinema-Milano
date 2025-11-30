@@ -32,6 +32,18 @@ class FavoritesService {
     await prefs.setString(_favoritesKey, json.encode(favorites.map((e) => e.toJson()).toList()));
   }
 
+  Future<void> updateFavorite(MovieAvailability movie) async {
+    final prefs = await SharedPreferences.getInstance();
+    final favorites = await getFavorites();
+    
+    final index = favorites.indexWhere((m) => m.movie.title == movie.movie.title);
+    
+    if (index >= 0) {
+      favorites[index] = movie;
+      await prefs.setString(_favoritesKey, json.encode(favorites.map((e) => e.toJson()).toList()));
+    }
+  }
+
   Future<bool> isFavorite(String movieTitle) async {
     final favorites = await getFavorites();
     return favorites.any((m) => m.movie.title == movieTitle);

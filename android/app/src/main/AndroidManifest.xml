@@ -46,4 +46,5 @@
             <data android:mimeType="vnd.android.cursor.dir/event" />
         </intent>
     </queries>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 </manifest>
