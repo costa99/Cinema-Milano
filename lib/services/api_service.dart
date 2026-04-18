@@ -4,17 +4,12 @@ import 'package:http/http.dart' as http;
 import '../models/movie.dart';
 
 class ApiService {
-  // Production domain
-  static const String _productionDomain = 'homescrapy.xyz';
-  static const String _localDomain = 'http://localhost:8001';
-
-  // Get API URL from Dart defines or use local as default for testing
-  // Usage:
-  //   Production: flutter run --dart-define=API_URL=https://homescrapy.xyz
+  // Get API URL from Dart defines or use production as default.
+  // Override for local dev:
   //   Android Emulator: flutter run --dart-define=API_URL=http://10.0.2.2:8001
   //   Physical Device: flutter run --dart-define=API_URL=http://192.168.1.x:8001
   String get baseUrl {
-    const apiUrl = String.fromEnvironment('API_URL', defaultValue: _localDomain);
+    const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'https://homescrapy.xyz');
     // If it's just the domain (no protocol), add https://
     if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
       return 'https://$apiUrl';

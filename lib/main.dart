@@ -9,15 +9,13 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   Workmanager().initialize(
     callbackDispatcher,
-    isInDebugMode: true // Set to false in production
+    isInDebugMode: true, // Set to false in production
   );
   Workmanager().registerPeriodicTask(
     "check_schedules_task",
     taskName,
     frequency: const Duration(hours: 2),
-    constraints: Constraints(
-      networkType: NetworkType.connected,
-    ),
+    constraints: Constraints(networkType: NetworkType.connected),
   );
   runApp(const MyApp());
 }
@@ -47,17 +45,20 @@ class _MyAppState extends State<MyApp> {
           darkTheme: _themeController.appTheme == AppTheme.neon
               ? ThemeData(
                   brightness: Brightness.dark,
-                  scaffoldBackgroundColor: const Color(0xFF050505), // Deep Atmospheric Black
+                  scaffoldBackgroundColor: const Color(
+                    0xFF050505,
+                  ), // Deep Atmospheric Black
                   primaryColor: const Color(0xFFFF6EC7), // Neon Pink
                   colorScheme: const ColorScheme.dark(
                     primary: Color(0xFFFF6EC7), // Neon Pink
                     secondary: Color(0xFFFFFF33), // Electric Yellow
                     tertiary: Color(0xFF00FFFF), // Bright Cyan Blue
                     surface: Color(0xFF050505),
-                    background: Color(0xFF050505),
                     onPrimary: Colors.black,
                     onSecondary: Colors.black,
-                    onSurface: Color(0xFFE0E0E0), // Slightly off-white for readability
+                    onSurface: Color(
+                      0xFFE0E0E0,
+                    ), // Slightly off-white for readability
                   ),
                   appBarTheme: const AppBarTheme(
                     backgroundColor: Color(0xFF050505),
@@ -67,10 +68,13 @@ class _MyAppState extends State<MyApp> {
                       color: Color(0xFFFF6EC7),
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Courier', // Monospace for retro feel (if available, or default)
+                      fontFamily:
+                          'Courier', // Monospace for retro feel (if available, or default)
                       letterSpacing: 1.5,
                     ),
-                    iconTheme: IconThemeData(color: Color(0xFFFFFF33)), // Yellow icons
+                    iconTheme: IconThemeData(
+                      color: Color(0xFFFFFF33),
+                    ), // Yellow icons
                   ),
                   textTheme: const TextTheme(
                     headlineLarge: TextStyle(
@@ -95,7 +99,10 @@ class _MyAppState extends State<MyApp> {
                       foregroundColor: const Color(0xFFFF6EC7), // Pink text
                       shadowColor: const Color(0xFFFF6EC7),
                       elevation: 5,
-                      side: const BorderSide(color: Color(0xFFFF6EC7), width: 2), // Pink neon border
+                      side: const BorderSide(
+                        color: Color(0xFFFF6EC7),
+                        width: 2,
+                      ), // Pink neon border
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -108,7 +115,10 @@ class _MyAppState extends State<MyApp> {
                   outlinedButtonTheme: OutlinedButtonThemeData(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF00FFFF), // Cyan text
-                      side: const BorderSide(color: Color(0xFF00FFFF), width: 2), // Cyan border
+                      side: const BorderSide(
+                        color: Color(0xFF00FFFF),
+                        width: 2,
+                      ), // Cyan border
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -119,13 +129,20 @@ class _MyAppState extends State<MyApp> {
                     size: 26,
                   ),
                   cardTheme: CardThemeData(
-                    color: const Color(0xFF121212), // Slightly lighter black for cards
+                    color: const Color(
+                      0xFF121212,
+                    ), // Slightly lighter black for cards
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Color(0xFF00FFFF), width: 1), // Cyan border for cards
+                      side: const BorderSide(
+                        color: Color(0xFF00FFFF),
+                        width: 1,
+                      ), // Cyan border for cards
                     ),
                     elevation: 4,
-                    shadowColor: const Color(0xFF00FFFF).withOpacity(0.4), // Cyan glow
+                    shadowColor: const Color(
+                      0xFF00FFFF,
+                    ).withOpacity(0.4), // Cyan glow
                   ),
                   useMaterial3: true,
                 )
